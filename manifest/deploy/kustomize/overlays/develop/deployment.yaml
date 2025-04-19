@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gf-demos
+  name: template-single
 spec:
   template:
     spec:
       containers:
-        - name: main
-          image: gf-demos:develop
+        - name : main
+          image: template-single:develop

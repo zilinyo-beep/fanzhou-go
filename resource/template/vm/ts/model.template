@@ -1,0 +1,91 @@
+export interface {{.table.ClassName}}TableColumns {
+    {{if eq .table.TplCategory "tree"}}
+    {{range $index, $column := .table.Columns}}
+    {{if or (eq $column.HtmlField $.table.TreeCode) (eq $column.HtmlField $.table.TreeParentCode) (eq $column.HtmlField $.table.TreeName) }}
+    {{$column.HtmlField}}:{{$column.TsType}}; // {{$column.ColumnComment}}
+    {{end}}
+    {{end}}
+    {{range $index, $column := .table.Columns}}
+    {{if and $column.IsList (ne $column.HtmlField $.table.TreeCode) (ne $column.HtmlField $.table.TreeParentCode) (ne $column.HtmlField $.table.TreeName) }}
+    {{$column.HtmlField}}:{{if and (eq $column.HtmlType "images" "file" "files" "checkbox" "selects" "treeSelects") (eq $column.DictType "")}}any[]{{else}}{{$column.TsType}}{{end}};  // {{$column.ColumnComment}}
+    {{end}}
+    {{range $ti, $linkedTable := $.table.LinkedTables}}
+    {{if eq $column.LinkTableClass $linkedTable.ClassName}}
+    linked{{$column.GoField}}?:Linked{{$.table.ClassName}}{{$linkedTable.ClassName}}; // {{$column.ColumnComment}}
+    {{end}}
+    {{end}}
+    {{end}}
+    {{else}}
+    {{if not .table.IsPkListable }}
+    {{.table.PkColumn.HtmlField}}:{{.table.PkColumn.TsType}}
+    {{end}}
+    {{range $index, $column := .table.ListColumns}}
+    {{if  eq $column.HtmlField "createdBy" "updatedBy"}}
+    {{$column.HtmlField}}:string;  // {{$column.ColumnComment}}
+    {{else}}
+    {{$column.HtmlField}}:{{if and (eq $column.HtmlType "images" "file" "files" "checkbox" "selects" "treeSelects") (eq $column.DictType "")}}any[]{{else}}{{$column.TsType}}{{end}};  // {{$column.ColumnComment}}
+    {{end}}
+    {{range $ti, $linkedTable := $.table.LinkedTables}}
+    {{if eq $column.LinkTableClass $linkedTable.ClassName}}
+    linked{{$column.GoField}}?:Linked{{$.table.ClassName}}{{$linkedTable.ClassName}}{{if eq $column.HtmlType "checkbox" "selects" "treeSelects"}}[]{{end}}; // {{$column.ColumnComment}}
+    {{end}}
+    {{end}}
+    {{end}}
+    {{end}}
+    {{range $ti, $linkedTable := .table.LinkedTables}}
+    linked{{$.table.ClassName}}{{$linkedTable.ClassName}}:Linked{{$.table.ClassName}}{{$linkedTable.ClassName}};
+    {{end}}
+}
+
+////
+export interface {{.table.ClassName}}InfoData {
+    {{range $index, $column := .table.Columns}}
+    {{if $column.IsPk}}{{$column.HtmlField}}:{{if eq $column.HtmlType "images" "file" "files" "checkbox" "selects" "treeSelects"}}any[]{{else if eq $column.HtmlType "radio"}}boolean{{else if eq $column.HtmlType "keyValue"}}{key:string,value:any}[]{{else}}{{$column.TsType}}|undefined{{end}};        // {{$column.ColumnComment}} {{else}}{{$column.HtmlField}}:{{if eq $column.HtmlType "images" "file" "files" "checkbox" "selects" "treeSelects"}}any[]{{else if eq $column.HtmlType "radio"}}boolean{{else if eq $column.HtmlType "keyValue"}}{key:string,value:any}[]{{else}}{{$column.TsType}}|undefined{{end}}; // {{$column.ColumnComment}} {{end}}
+    {{range $ti, $linkedTable := $.table.LinkedTables}}
+    {{if eq $column.LinkTableClass $linkedTable.ClassName}}
+    linked{{$column.GoField}}?:Linked{{$.table.ClassName}}{{$linkedTable.ClassName}}{{if eq $column.HtmlType "checkbox" "selects" "treeSelects"}}[]{{end}}; // {{$column.ColumnComment}}
+    {{end}}
+    {{end}}
+    {{end}}
+    {{range $ti, $linkedTable := .table.LinkedTables}}
+    linked{{$.table.ClassName}}{{$linkedTable.ClassName}}?:Linked{{$.table.ClassName}}{{$linkedTable.ClassName}};
+    {{end}}
+}
+
+{{range $ti, $linkedTable := .table.LinkedTables}}
+////
+export interface Linked{{$.table.ClassName}}{{$linkedTable.ClassName}} {
+	{{range $ci, $linkedColumn := $linkedTable.RefColumns.Values}}
+    {{$linkedColumn.HtmlField}}:{{if eq $linkedColumn.HtmlType "images" "file" "files"}}any[]{{else}}{{$linkedColumn.TsType}}|undefined{{end}};    // {{$linkedColumn.ColumnComment}}
+	{{end}}
+}
+{{end}}
+
+////
+export interface {{.table.ClassName}}TableDataState {
+    {{.table.PkColumn.HtmlField}}s:any[];
+    tableData: {
+        data: Array<{{.table.ClassName}}TableColumns>;
+        total: number;
+        loading: boolean;
+        param: {
+            pageNum: number;
+            pageSize: number;
+            {{range $index, $column := .table.QueryColumns}}
+            {{if eq $column.QueryType "BETWEEN"}}
+            {{$column.HtmlField}}: {{$column.TsType}}[];
+            {{else}}
+            {{$column.HtmlField}}: {{$column.TsType}}|undefined;
+            {{end}}{{end}}
+            dateRange: string[];
+        };
+    };
+}
+
+////
+export interface {{.table.ClassName}}EditState{
+    loading:boolean;
+    isShowDialog: boolean;
+    formData:{{.table.ClassName}}InfoData;
+    rules: object;
+}

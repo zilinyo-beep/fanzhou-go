@@ -2,56 +2,65 @@ package cmd
 
 import (
 	"context"
-
+	"fanzhou-go/internal/consts"
+	"fanzhou-go/internal/router"
+	"fanzhou-go/library/libValidate"
+	"fanzhou-go/library/upload"
+	"fmt"
+	"github.com/gogf/gf/v2/encoding/gbase64"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/net/goai"
 	"github.com/gogf/gf/v2/os/gcmd"
-
-	"fanzhou-go/internal/consts"
-	"fanzhou-go/internal/controller/user"
-	"fanzhou-go/internal/service"
+	"github.com/gogf/gf/v2/os/glog"
+	"github.com/gogf/gf/v2/text/gstr"
 )
 
 var (
-	// Main is the main command.
 	Main = gcmd.Command{
 		Name:  "main",
 		Usage: "main",
-		Brief: "start http server of fanzhou-go",
+		Brief: "start http server",
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
+			//mqueue.InitRabbitMQ()
+			//mqueue.StartConsumers()
+			g.Log().SetFlags(glog.F_ASYNC | glog.F_TIME_DATE | glog.F_TIME_TIME | glog.F_FILE_LONG)
+			g.Log().Info(ctx, gbase64.MustDecodeString(consts.Logo), "Version:", consts.Version)
 			s := g.Server()
-			s.Use(ghttp.MiddlewareHandlerResponse)
-
-			s.Group("/api", func(group *ghttp.RouterGroup) {
-				// Group middlewares.
-				group.Middleware(
-					service.Middleware().Ctx,
-					ghttp.MiddlewareCORS,
-				)
-				// Register route handlers.
-				var (
-					userCtrl = user.NewV1()
-				)
-				group.Bind(
-					userCtrl,
-				)
-				// Special handler that needs authentication.
-				group.Group("/", func(group *ghttp.RouterGroup) {
-					group.Middleware(service.Middleware().Auth)
-					group.ALLMap(g.Map{
-						"/user/profile": userCtrl.Profile,
-					})
-				})
+			s.Group("/", func(group *ghttp.RouterGroup) {
+				router.R.BindController(ctx, group)
 			})
-			// Custom enhance API document.
+			//重新配置swaggerUI静态页面--start--,若要使用原版gf字段swaggerUI请删除或注释此段
+			swaggerPath := g.Cfg().MustGet(ctx, "server.swaggerPath").String()
+			if swaggerPath != "" {
+				s.BindHookHandler(swaggerPath+"/*", ghttp.HookBeforeServe, func(r *ghttp.Request) {
+					content := gstr.ReplaceByMap(consts.SwaggerUITemplate, map[string]string{
+						`{SwaggerUIDocUrl}`:             g.Cfg().MustGet(ctx, "server.openapiPath").String(),
+						`{SwaggerUIDocNamePlaceHolder}`: gstr.TrimRight(fmt.Sprintf(`//%s`, r.Host)),
+					})
+					r.Response.Write(content)
+					r.ExitAll()
+				})
+			}
+			//重新配置swaggerUI静态页面--end--
 			enhanceOpenAPIDoc(s)
-			// Just run the server.
+			//注册相关组件
+			register()
 			s.Run()
 			return nil
 		},
 	}
 )
+
+// 相关组件注册
+func register() {
+	//注册上传组件
+	upload.Register()
+	//注册自定义验证规则
+	libValidate.Register()
+	//执行计划任务
+	//task.Run()
+}
 
 func enhanceOpenAPIDoc(s *ghttp.Server) {
 	openapi := s.GetOpenApi()
@@ -63,8 +72,8 @@ func enhanceOpenAPIDoc(s *ghttp.Server) {
 		Title:       consts.OpenAPITitle,
 		Description: consts.OpenAPIDescription,
 		Contact: &goai.Contact{
-			Name: "fanzhou-go",
-			URL:  "http://127.0.0.1",
+			Name: consts.OpenAPIContactName,
+			URL:  consts.OpenAPIContactUrl,
 		},
 	}
 }

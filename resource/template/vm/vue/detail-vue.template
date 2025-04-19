@@ -1,0 +1,496 @@
+<template>
+  <!-- {{.table.FunctionName}}详情抽屉 -->
+  {{$lens := .table.Columns|len}}
+  {{$businessName := .table.BusinessName | CaseCamelLower}}
+  {{$treeParentCode := .table.TreeParentCode}}
+  {{$treeCode := .table.TreeCode}}
+  {{$treeName := .table.TreeName}}
+  <div class="{{.table.ModuleName}}-{{.table.BusinessName|CaseCamelLower}}-detail">
+    <el-drawer v-model="isShowDialog" size="80%" direction="ltr">
+      <template #header>
+        <h4>{{.table.FunctionName}}详情</h4>
+      </template>
+      <el-form ref="formRef" :model="formData" label-width="100px">
+      {{ $hasRowEnd := true }}
+      {{range $index, $column := .table.DetailColumns}}
+        {{if and (eq $column.IsRowStart true) (ne $index 0)}}
+          {{ $hasRowEnd = true }}
+        </el-row>
+        {{end}}
+        {{if or (eq $column.IsRowStart true) (eq $index 0)}}
+          {{ $hasRowEnd = false }}
+        <el-row>
+        {{end}}
+        {{if eq $column.HtmlType "input" "textarea" "radio" "checkbox" "select" "selects" "treeSelect" "treeSelects"}}
+          <el-col :span="{{$column.ColSpan}}">
+          {{if ne $column.LinkTableName ""}}
+            {{range $ti, $linkedTable := $.table.LinkedTables}}
+            {{if eq $column.LinkTableClass $linkedTable.ClassName}}
+            {{if eq $column.HtmlType "selects" "checkbox" "treeSelects"}}
+            <el-form-item label="{{$column.ColumnComment}}">{{"{{"}} formData.linked{{$column.GoField}}?formData.linked{{$column.GoField}}.map((res:any)=>{return res.{{CaseCamelLower $column.LinkLabelName}}}).join('，'):'' {{"}}"}}</el-form-item>
+            {{else}}
+            <el-form-item label="{{$column.ColumnComment}}">{{"{{"}} formData.linked{{$column.GoField}}?formData.linked{{$column.GoField}}.{{CaseCamelLower $column.LinkLabelName}}:'' {{"}}"}}</el-form-item>
+            {{end}}
+            {{end}}
+            {{end}}
+          {{else if ne $column.DictType ""}}
+          {{if eq $column.HtmlType "checkbox" }}
+          <el-form-item label="{{$column.ColumnComment}}">
+            <el-tag class="ml-2" type="success" v-for="(item,key) in formData.{{$column.HtmlField}}" :key="'{{$column.HtmlField}}-'+key">
+              {{"{{"}} proxy.getOptionValue(item, {{$column.HtmlField}}Options,'value','label') {{"}}"}}
+            </el-tag>
+          </el-form-item>
+          {{else}}
+          <el-form-item label="{{$column.ColumnComment}}">{{"{{"}} proxy.getOptionValue({{if eq $column.TsType "boolean"}}formData.{{$column.HtmlField}}?'1':'0'{{else}}formData.{{$column.HtmlField}}{{end}}, {{$column.HtmlField}}Options,'value','label') {{"}}"}}</el-form-item>
+          {{end}}
+          {{else}}
+            <el-form-item label="{{$column.ColumnComment}}">{{"{{"}} formData.{{$column.HtmlField}} {{"}}"}}</el-form-item>
+          {{end}}
+          </el-col>
+        {{else if eq $column.HtmlType "date"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">{{"{{"}} proxy.parseTime(formData.{{$column.HtmlField}}, '{y}-{m}-{d}') {{"}}"}}</el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "datetime"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">{{"{{"}} proxy.parseTime(formData.{{$column.HtmlField}}, '{y}-{m}-{d} {h}:{i}:{s}') {{"}}"}}</el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "richtext"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">
+              <p v-html="formData.{{$column.HtmlField}}"></p>
+            </el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "imagefile"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">
+              <el-image
+                style="width: 150px; height: 150px"
+                v-if="!proxy.isEmpty(formData.{{$column.HtmlField}})"
+                :src="proxy.getUpFileUrl(formData.{{$column.HtmlField}})"
+                fit="contain"></el-image>
+            </el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "images"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">
+              <div class="pic-block" v-for="(img,key) in formData.{{$column.HtmlField}}" :key="'{{$column.HtmlField}}-'+key">
+                <el-image
+                  style="width: 150px; height: 150px"
+                  v-if="!proxy.isEmpty(img.url)"
+                  :src="proxy.getUpFileUrl(img.url)"
+                  fit="contain"></el-image>
+              </div>
+            </el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "file"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">
+              <div class="file-block" v-for="(item,key) in formData.{{$column.HtmlField}}" :key="'{{$column.HtmlField}}-'+key">
+                <el-link type="primary" :underline="false"
+                         :href="proxy.getUpFileUrl(item.url)" target="_blank">{{"{{"}}item.name{{"}}"}}</el-link>
+              </div>
+            </el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "files"}}
+          <el-col :span="{{$column.ColSpan}}">
+            <el-form-item label="{{$column.ColumnComment}}">
+              <div class="file-block" v-for="(item,key) in formData.{{$column.HtmlField}}" :key="'{{$column.HtmlField}}-'+key">
+                <el-link type="primary" :underline="false"
+                         :href="proxy.getUpFileUrl(item.url)" target="_blank">{{"{{"}}item.name{{"}}"}}</el-link>
+              </div>
+            </el-form-item>
+          </el-col>
+        {{else if eq $column.HtmlType "keyValue"}}
+          <el-form-item label="{{$column.ColumnComment}}">
+            <el-tag class="ml-2" v-for="(item,key) in formData.{{$column.HtmlField}}" :key="'{{$column.HtmlField}}-'+key">
+              {{"{{"}} item.key {{"}}"}} : {{"{{"}} item.value {{"}}"}}
+            </el-tag>
+          </el-form-item>
+        {{end}}
+      {{end}}
+      {{if not $hasRowEnd}}
+        </el-row>
+      {{end}}
+      </el-form>
+    </el-drawer>
+  </div>
+</template>
+
+
+{{$tokenImp := false}}
+{{$imgsImp := false}}
+{{$editImp := false }}
+{{$fileImp := false}}
+{{$getUserList:=false}}
+
+{{range $index,$column:=.table.Columns}}
+  {{if eq $column.HtmlType "richtext"}}
+    {{$editImp = true}}
+  {{else if eq $column.HtmlType "imagefile"}}
+    {{$tokenImp = true}}
+  {{else if eq $column.HtmlType "images"}}
+    {{$imgsImp = true}}
+  {{else if eq $column.HtmlType "file" "files"}}
+    {{$fileImp = true}}
+  {{end}}
+  {{if eq $column.HtmlField "createdBy" "updatedBy"}}
+    {{$getUserList = true}}
+  {{end}}
+{{end}}
+
+<script lang="ts">
+  import { reactive, toRefs, defineComponent,ref,unref,getCurrentInstance,computed } from 'vue';
+  import {ElMessageBox, ElMessage, FormInstance,UploadProps} from 'element-plus';
+  {{/*去重处理*/}}
+  {{$hasImports:=newArray}}
+  import {
+    list{{.table.ClassName}},
+    get{{.table.ClassName}},
+    del{{.table.ClassName}},
+    add{{.table.ClassName}},
+    update{{.table.ClassName}},
+    {{range $index,$column:= .table.Columns}}
+    {{if and $column.IsStatus $column.IsList}}
+    change{{$.table.ClassName}}{{$column.GoField}},
+    {{end}}
+    {{end}}
+  } from "/@/api/{{.modulePath}}/{{$businessName}}";
+
+  {{if $editImp}}
+  import GfUeditor from "/@/components/ueditor/index.vue"
+  {{end}}
+  {{if $tokenImp}}
+  import {getToken} from "/@/utils/gfast"
+  {{end}}
+  {{if $imgsImp}}
+  import uploadImg from "/@/components/uploadImg/index.vue"
+  {{end}}
+  {{if $fileImp}}
+  import uploadFile from "/@/components/uploadFile/index.vue"
+  {{end}}
+  import {
+    {{.table.ClassName}}TableColumns,
+    {{.table.ClassName}}InfoData,
+    {{.table.ClassName}}TableDataState,
+    {{.table.ClassName}}EditState
+  } from "/@/views/{{.modulePath}}/{{$businessName}}/list/component/model"
+  export default defineComponent({
+    name:"{{.apiVersion|replace "/" "_"|CaseCamel}}{{.modulePath|replace "/" "_"|CaseCamel}}{{.table.ClassName}}Detail",
+    components:{
+      {{if $editImp}}
+      GfUeditor,
+      {{end}}
+      {{if $imgsImp}}
+      uploadImg,
+      {{end}}
+      {{if $fileImp}}
+      uploadFile,
+      {{end}}
+    },
+    props:{
+      {{range $index, $column := .table.Columns}}
+      {{if ne $column.DictType ""}}
+      {{$column.HtmlField}}Options:{
+        type:Array,
+        default:()=>[]
+      },
+      {{else if ne $column.LinkTableName ""}}
+      {{if $column.IsCascade}}
+      {{/*级联处理*/}}
+      {{end}}
+      {{/*关联表处理*/}}
+      {{$column.HtmlField}}Options:{
+        type:Array,
+        default:()=>[]
+      },
+      {{end}}
+      {{end}}
+      {{if eq .table.TplCategory "tree"}}
+      // {{.table.FunctionName}}树选项
+      {{$businessName}}Options :{
+        type:Array,
+        default:()=>[]
+      },
+      {{end}}
+    },
+    setup(props,{emit}) {
+      {{if or $imgsImp $tokenImp $fileImp}}
+      const baseURL:string|undefined|boolean = import.meta.env.VITE_API_URL
+      {{end}}
+      const {proxy} = <any>getCurrentInstance()
+      const formRef = ref<HTMLElement | null>(null);
+      const menuRef = ref();
+      {{range $index, $column := .table.Columns}}
+      {{if eq $column.HtmlType "imagefile"}}
+      //图片上传地址
+      const imageUrl{{$column.GoField}} = ref('')
+      //上传加载
+      const upLoading{{$column.GoField}} = ref(false)
+      {{end}}
+      {{end}}
+      const state = reactive<{{.table.ClassName}}EditState>({
+        loading:false,
+        isShowDialog: false,
+        formData: {
+          {{range $index, $column := .table.Columns}}
+          {{if eq $column.HtmlType "radio"}}
+          {{$column.HtmlField}}: false ,
+          {{else if eq $column.HtmlType "images" "file" "files" "checkbox" "selects" "treeSelects" "keyValue"}}
+          {{$column.HtmlField}}: [] ,
+          {{else}}
+          {{$column.HtmlField}}: undefined,
+          {{range $ti, $linkedTable := $.table.LinkedTables}}
+          {{if eq $column.LinkTableClass $linkedTable.ClassName}}
+          {{if eq $column.HtmlType "checkbox" "selects" "treeSelects"}}
+          linked{{$column.GoField}}:[],
+          {{else}}
+          linked{{$column.GoField}}:{{ "{" }}{{CaseCamelLower $column.LinkLabelId}}:undefined,{{CaseCamelLower $column.LinkLabelName}}:undefined {{ "}" }},
+          {{end}}
+          {{end}}
+          {{end}}
+          {{end}}
+          {{end}}
+          {{range $ti, $linkedTable := .table.LinkedTables}}
+          linked{{$.table.ClassName}}{{$linkedTable.ClassName}}: {
+            {{range $ci, $linkedColumn := $linkedTable.RefColumns.Values}}
+            {{$linkedColumn.HtmlField}}:{{if eq $linkedColumn.HtmlType "images" "file" "files"}}[]{{else}}undefined{{end}},    // {{$linkedColumn.ColumnComment}}
+            {{end}}
+          },
+          {{end}}
+        },
+        // 表单校验
+        rules: {
+          {{range $index, $column := .table.Columns}}
+          {{if $column.IsRequired}}
+          {{$column.HtmlField}} : [
+              { required: true, message: "{{$column.ColumnComment}}不能为空", trigger: "blur" }
+          ]{{if ne $lens $index}},{{end}}
+          {{end}}
+          {{end}}
+        }
+      });
+        // 打开弹窗
+        const openDialog = (row?: {{.table.ClassName}}InfoData) => {
+          resetForm();
+          if(row) {
+            get{{.table.ClassName}}(row.{{.table.PkColumn.HtmlField}}!).then((res:any)=>{
+              const data = res.data;
+              {{range $index, $column := .table.DetailColumns}}
+              {{if and (ne $treeParentCode "") (eq $column.HtmlField $treeParentCode)}}
+              data.{{$treeParentCode}} = getTreeVal(props.{{$businessName}}Options,data.{{$treeParentCode}})
+              {{else if eq $column.HtmlType "checkbox"}}
+              data.{{$column.HtmlField}} = data.{{$column.HtmlField}}.split(",")
+              {{else if eq $column.HtmlType "imagefile"}}
+              //单图地址赋值
+              imageUrl{{$column.GoField}}.value = data.{{$column.HtmlField}} ? proxy.getUpFileUrl(data.{{$column.HtmlField}}) : ''
+              {{else if eq $column.HtmlType "images" "file" "files" "keyValue"}}
+              data.{{$column.HtmlField}} =data.{{$column.HtmlField}}?JSON.parse(data.{{$column.HtmlField}}) : []
+              {{end}}
+              {{if eq $column.HtmlField "createdBy"}}
+              data.createdBy = data.createdUser?.userNickname
+              {{end}}
+              {{if eq $column.HtmlField "updatedBy"}}
+              data.updatedBy = data.updatedUser?.userNickname
+              {{end}}
+              {{end}}
+              state.formData = data;
+            })
+          }
+          state.isShowDialog = true;
+        };
+        // 关闭弹窗
+        const closeDialog = () => {
+          state.isShowDialog = false;
+        };
+        // 取消
+        const onCancel = () => {
+          closeDialog();
+        };
+        const resetForm = ()=>{
+          state.formData = {
+            {{range $index, $column := .table.Columns}}
+            {{if eq $column.HtmlType "radio"}}
+            {{$column.HtmlField}}: false ,
+            {{else if eq $column.HtmlType "images" "file" "files" "checkbox" "selects" "treeSelects" "keyValue"}}
+            {{$column.HtmlField}}: [] ,
+            {{else}}
+            {{$column.HtmlField}}: undefined,
+            {{end}}
+            {{range $ti, $linkedTable := $.table.LinkedTables}}
+            {{if eq $column.LinkTableClass $linkedTable.ClassName}}
+            {{if eq $column.HtmlType "checkbox" "selects" "treeSelects"}}
+            linked{{$column.GoField}}:[],
+            {{else}}
+            linked{{$column.GoField}}:{{ "{" }}{{CaseCamelLower $column.LinkLabelId}}:undefined,{{CaseCamelLower $column.LinkLabelName}}:undefined {{ "}" }},
+            {{end}}
+            {{end}}
+            {{end}}
+            {{end}}
+            {{range $ti, $linkedTable := .table.LinkedTables}}
+            linked{{$.table.ClassName}}{{$linkedTable.ClassName}}: {
+              {{range $ci, $linkedColumn := $linkedTable.RefColumns.Values}}
+              {{$linkedColumn.HtmlField}}:{{if eq $linkedColumn.HtmlType "images" "file" "files"}}[]{{else}}undefined{{end}},    // {{$linkedColumn.ColumnComment}}
+              {{end}}
+            },
+            {{end}}
+          }
+        };
+        {{$setUpData:=true}}
+        {{range $index, $column := .table.Columns}}
+        {{if ne $column.LinkTableName ""}}
+        //关联{{$column.LinkTableName}}表选项
+        const get{{$column.LinkTableClass}}Items{{$column.GoField}} = () => {
+          emit("get{{$column.LinkTableClass}}Items{{$column.GoField}}")
+        }
+        const get{{$column.GoField}}Op = computed(()=>{
+          get{{$column.LinkTableClass}}Items{{$column.GoField}}()
+          return props.{{$column.HtmlField}}Options
+        })
+        {{else if eq $column.HtmlType "richtext"}}
+        //富文本编辑器{{$column.ColumnComment}}
+        const set{{$column.GoField}}EditContent = (data:string) => {
+          state.formData.{{$column.HtmlField}} = data
+        }
+        {{else if eq $column.HtmlType "imagefile"}}
+        //单图上传{{$column.ColumnComment}}
+        const handleAvatarSuccess{{$column.GoField}}:UploadProps['onSuccess'] = (res, file) => {
+          if (res.code === 0) {
+            imageUrl{{$column.GoField}}.value = URL.createObjectURL(file.raw!)
+            state.formData.{{$column.HtmlField}} = res.data.path
+          } else {
+            ElMessage.error(res.msg)
+          }
+          upLoading{{$column.GoField}}.value = false
+        }
+        const beforeAvatarUpload{{$column.GoField}} = () => {
+          upLoading{{$column.GoField}}.value = true
+          return true
+        }
+        {{if $setUpData}}
+        const setUpData = () => {
+          return { token: getToken() }
+        }
+        {{$setUpData = false}}
+        {{end}}
+        {{else if eq $column.HtmlType "images"}}
+        const setUpImgList{{$column.GoField}} = (data:any)=>{
+          state.formData.{{$column.HtmlField}} = data
+        }
+        {{else if eq $column.HtmlType "file" "files"}}
+        const setUpFileList{{$column.GoField}} = (data:any)=>{
+          state.formData.{{$column.HtmlField}} = data
+        }
+        {{end}}
+        {{end}}
+        {{if eq .table.TplCategory "tree"}}
+        const getTreeVal = (data : any[],val : any) : any=>{
+          let findV:any = null
+          data.some((item:any)=>{
+            if(item.{{$treeCode}}==val){
+              findV = item.{{$treeName}}
+              return true
+            }
+            if(item.children) {
+              findV = getTreeVal(item.children, val)
+              if (findV) {
+                return findV
+              }
+            }
+          })
+          return findV
+        }
+        {{end}}
+        {{$setUpDataR:=true}}
+        return {
+          proxy,
+          openDialog,
+          closeDialog,
+          onCancel,
+          menuRef,
+          formRef,
+          {{range $index, $column := .table.Columns}}
+          {{if ne $column.LinkTableName ""}}
+          {{if $column.IsCascade}}
+          {{/*级联处理*/}}
+          {{else}}
+          {{/*关联表处理*/}}
+          get{{$column.LinkTableClass}}Items{{$column.GoField}},
+          get{{$column.GoField}}Op,
+          {{end}}
+          {{else if eq $column.HtmlType "richtext"}}
+          //富文本编辑器{{$column.ColumnComment}}
+          set{{$column.GoField}}EditContent,
+          {{else if eq $column.HtmlType "imagefile"}}
+          //图片上传地址
+          imageUrl{{$column.GoField}},
+          //上传加载
+          upLoading{{$column.GoField}},
+          handleAvatarSuccess{{$column.GoField}},
+          beforeAvatarUpload{{$column.GoField}},
+          {{if $setUpDataR}}
+          setUpData,
+          {{$setUpDataR = false}}
+          {{end}}
+          {{else if eq $column.HtmlType "images"}}
+          setUpImgList{{$column.GoField}},
+          {{else if eq $column.HtmlType "file" "files"}}
+          setUpFileList{{$column.GoField}},
+          {{end}}
+          {{end}}
+          {{if or $imgsImp $tokenImp $fileImp}}
+          baseURL,
+          {{end}}
+          ...toRefs(state),
+        };
+      }
+  })
+</script>
+
+<style scoped>
+  {{if $tokenImp}}
+  .{{.table.ModuleName}}-{{.table.BusinessName|CaseCamelLower}}-detail :deep(.avatar-uploader .avatar) {
+    width: 178px;
+    height: 178px;
+    display: block;
+  }
+  .{{.table.ModuleName}}-{{.table.BusinessName|CaseCamelLower}}-detail :deep(.avatar-uploader .el-upload) {
+    border: 1px dashed var(--el-border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: var(--el-transition-duration-fast);
+  }
+
+  .{{.table.ModuleName}}-{{.table.BusinessName|CaseCamelLower}}-detail :deep(.avatar-uploader .el-upload:hover) {
+    border-color: var(--el-color-primary);
+  }
+
+  .{{.table.ModuleName}}-{{.table.BusinessName|CaseCamelLower}}-detail :deep(.el-icon.avatar-uploader-icon) {
+    font-size: 28px;
+    color: #8c939d;
+    width: 178px;
+    height: 178px;
+    text-align: center;
+  }
+  {{end}}
+  .{{.table.ModuleName}}-{{.table.BusinessName|CaseCamelLower}}-detail :deep(.el-form-item--large .el-form-item__label){
+    font-weight: bolder;
+  }
+  .pic-block{
+    margin-right: 8px;
+  }
+  .file-block{
+    width: 100%;
+    border: 1px solid var(--el-border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: var(--el-transition-duration-fast);
+    margin-bottom: 5px;
+    padding: 3px 6px;
+  }
+  .ml-2{margin-right: 5px;}
+</style>
